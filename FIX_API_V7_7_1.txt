@@ -1,0 +1,12 @@
+V7.7.1
+- .env local agora usa /backend
+- .env.production usa /backend
+- Vite dev proxy envia /backend para AWS:8080
+- Netlify proxy continua enviando /backend para AWS:8080
+
+IMPORTANTE:
+Depois de substituir os arquivos, pare e reinicie o Vite:
+Ctrl+C
+npm run dev
+
+Variáveis VITE_* são carregadas na inicialização do Vite.
