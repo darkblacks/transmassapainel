@@ -43,6 +43,17 @@ function cleanVehiclePlate(value: unknown): string {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
+function looksLikeRefrigeratedTrailer(vehicle: Vehicle, mapping?: FleetMappingMember): boolean {
+  const type = `${mapping?.vehicle_type || ''} ${vehicle.vehicleType || ''}`.toLowerCase()
+  return /carreta|ba[uú]|reboque|semi[- ]?reboque/.test(type)
+}
+
+function shortDate(value?: string): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('pt-BR')
+}
+
 function elapsed(value?: string): string {
   if (!value) return 'INÍCIO NÃO REGISTRADO'
   const date = new Date(value)
@@ -354,6 +365,8 @@ function Panel({
   const [mappingMembers, setMappingMembers] = useState<FleetMappingMember[]>([])
   const [mappingGroupId, setMappingGroupId] = useState<'total' | number>('total')
   const [mappingBase, setMappingBase] = useState('')
+  const [assetTab, setAssetTab] = useState<'fleet' | 'trailers'>('fleet')
+  const [openTrailerPlate, setOpenTrailerPlate] = useState<string | null>(null)
 
   async function load(silent = false) {
     if (!silent) setLoading(true)
@@ -433,6 +446,156 @@ function Panel({
   const operationalByPlate = useMemo(
     () => new Map((data?.vehicles || []).map(vehicle => [cleanVehiclePlate(vehicle.plate), vehicle])),
     [data]
+  )
+
+  const knownTrailerPlates = useMemo(() => {
+    const plates = new Set<string>()
+    for (const vehicle of data?.vehicles || []) {
+      for (const plate of vehicle.manifest?.trailers || []) plates.add(cleanVehiclePlate(plate))
+      for (const manifest of vehicle.activeManifests || []) {
+        for (const plate of manifest.trailers || []) plates.add(cleanVehiclePlate(plate))
+      }
+    }
+    return plates
+  }, [data])
+
+  // Relação carreta -> placa mãe: usada apenas para saber a qual cavalo/manifesto
+  // o baú está atrelado. IMPORTANTE: manutenção nunca é herdada da placa mãe.
+  // A manutenção do baú só existe quando a própria placa do baú possui OS pendente.
+  const trailerParentByPlate = useMemo(() => {
+    const parents = new Map<string, Vehicle>()
+
+    const priority = (vehicle: Vehicle) => {
+      if (vehicle.operationalStatus === 'MAINTENANCE') return 40
+      if (vehicle.operationalStatus === 'IN_TRANSIT') return 30
+      if (vehicle.operationalStatus === 'COMMITTED') return 20
+      return 10
+    }
+
+    for (const parent of data?.vehicles || []) {
+      const active = parent.activeManifests?.length
+        ? parent.activeManifests
+        : (parent.manifest ? [parent.manifest] : [])
+
+      for (const manifest of active) {
+        for (const rawTrailerPlate of manifest.trailers || []) {
+          const trailerPlate = cleanVehiclePlate(rawTrailerPlate)
+          if (!trailerPlate) continue
+
+          const current = parents.get(trailerPlate)
+          if (!current || priority(parent) > priority(current)) {
+            parents.set(trailerPlate, parent)
+          }
+        }
+      }
+    }
+
+    return parents
+  }, [data])
+
+  const refrigeratedTrailers = useMemo<Vehicle[]>(() => {
+    const trailerPlates = new Set<string>()
+
+    // Fonte principal: o próprio mapeamento da frota. Se na tela de mapeamento
+    // a placa foi classificada como Carreta/Baú/Reboque, ela precisa aparecer
+    // nesta aba mesmo sem manifesto ou OS no momento.
+    for (const mapping of mappingMembers) {
+      const plate = cleanVehiclePlate(mapping.plate)
+      if (!plate) continue
+      const mappedType = String(mapping.vehicle_type || '').toLowerCase()
+      if (/carreta|ba[uú]|reboque|semi[- ]?reboque/.test(mappedType)) {
+        trailerPlates.add(plate)
+      }
+    }
+
+    // Complemento: carretas vistas nos manifestos também entram, mesmo que
+    // ainda não tenham sido classificadas manualmente no mapeamento.
+    for (const plate of knownTrailerPlates) {
+      if (plate) trailerPlates.add(plate)
+    }
+
+    return [...trailerPlates]
+      .map(plate => {
+        const mapping = mappingByPlate.get(plate)
+
+        // Se estamos olhando uma filial específica, respeita a filial definida
+        // no mapeamento quando ela existe.
+        if (mappingBase && mapping?.base_code) {
+          const selectedBranch = canonicalBranchCode(mappingBase)
+          const belongs = selectedBranch
+            ? belongsToBranch(mapping.base_code, selectedBranch)
+            : mapping.base_code === mappingBase
+          if (!belongs) return null
+        }
+
+        const operational = operationalByPlate.get(plate)
+        const parent = trailerParentByPlate.get(plate)
+
+        // 1) Se o próprio baú tem OS pendente, ele está em manutenção,
+        // independentemente de estar atrelado a algum cavalo.
+        if (operational?.operationalStatus === 'MAINTENANCE') {
+          return {
+            ...operational,
+            vehicleType: mapping?.vehicle_type || 'Carreta Refrigerada'
+          } as Vehicle
+        }
+
+        // 2) Se a placa do baú aparece em qualquer manifesto ativo de um cavalo,
+        // o baú está OCUPADO. Não herdamos MANUTENÇÃO da placa mãe: ela só vale
+        // quando a própria placa do baú possui OS pendente (regra acima).
+        if (parent) {
+          return {
+            ...(operational || parent),
+            plate,
+            vehicleType: mapping?.vehicle_type || 'Carreta Refrigerada',
+            fleetSource: operational?.fleetSource || 'FLEET_MAPPING',
+            operationalStatus: 'COMMITTED',
+            ownership: mapping?.ownership === 'THIRD_PARTY' ? 'THIRD_PARTY' : 'OWN',
+            thirdPartyName: mapping?.third_party_name || mapping?.owner_code || '',
+            maintenance: operational?.maintenance || null,
+            manifest: parent.manifest || null,
+            activeManifests: parent.activeManifests || []
+          } as Vehicle
+        }
+
+        // 3) Caso raro: o próprio baú aparece como veículo principal em um
+        // manifesto ativo. Também é considerado OCUPADO.
+        const ownActiveManifests = operational?.activeManifests?.length
+          ? operational.activeManifests
+          : (operational?.manifest ? [operational.manifest] : [])
+
+        if (operational && ownActiveManifests.length > 0) {
+          return {
+            ...operational,
+            vehicleType: mapping?.vehicle_type || (looksLikeRefrigeratedTrailer(operational, mapping)
+              ? operational.vehicleType
+              : 'Carreta Refrigerada'),
+            operationalStatus: 'COMMITTED'
+          } as Vehicle
+        }
+
+        // 4) Sem OS própria e sem manifesto ativo com essa placa: LIVRE.
+        return {
+          plate,
+          vehicleType: mapping?.vehicle_type || 'Carreta Refrigerada',
+          fleetSource: 'FLEET_MAPPING',
+          operationalStatus: 'AVAILABLE',
+          ownership: mapping?.ownership === 'THIRD_PARTY' ? 'THIRD_PARTY' : 'OWN',
+          thirdPartyName: mapping?.third_party_name || mapping?.owner_code || '',
+          capacityKg: 0,
+          loadKg: 0,
+          utilizationPercent: null,
+          manifest: null,
+          maintenance: null
+        } as Vehicle
+      })
+      .filter((vehicle): vehicle is Vehicle => Boolean(vehicle))
+      .sort((a, b) => a.plate.localeCompare(b.plate))
+  }, [mappingMembers, knownTrailerPlates, mappingByPlate, operationalByPlate, trailerParentByPlate, mappingBase])
+
+  const maintenanceTrailers = useMemo(
+    () => refrigeratedTrailers.filter(vehicle => vehicle.operationalStatus === 'MAINTENANCE'),
+    [refrigeratedTrailers]
   )
 
   const effectiveVehicles = useMemo<Vehicle[]>(() => {
@@ -667,6 +830,16 @@ function Panel({
 
       {error && <div className="error"><AlertTriangle/>{error}</div>}
 
+      <div className="asset-tabs">
+        <button className={assetTab === 'fleet' ? 'active' : ''} onClick={() => setAssetTab('fleet')}>
+          <Truck/> Frota
+        </button>
+        <button className={assetTab === 'trailers' ? 'active' : ''} onClick={() => setAssetTab('trailers')}>
+          <Wrench/> Baús refrigerados <b>{refrigeratedTrailers.length}</b>
+        </button>
+      </div>
+
+      {assetTab === 'fleet' ? <>
       <motion.div
         className="filters"
         initial={{ opacity: 0, y: 12 }}
@@ -775,7 +948,10 @@ function Panel({
               exit={{ opacity: 0, x: 14 }}
               transition={{ duration: 0.2 }}
             >
-              <div className={`fleet-row s-${vehicle.operationalStatus.toLowerCase()}`}>
+              <div
+                className={`fleet-row s-${vehicle.operationalStatus.toLowerCase()}${vehicle.hasInconsistency ? ' has-inconsistency' : ''}`}
+                title={vehicle.hasInconsistency ? (vehicle.inconsistencyReason || 'Inconsistência operacional') : undefined}
+              >
                 <button
                   className="expand-btn"
                   onClick={(e) => { e.stopPropagation(); setOpenPlate(isOpen ? null : vehicle.plate) }}
@@ -869,6 +1045,56 @@ function Panel({
           <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}>Próxima</button>
         </div>
       </footer>
+      </> : (
+        <section className="trailer-maintenance-panel">
+          <div className="trailer-maintenance-headline">
+            <div>
+              <span className="eyebrow">ATIVOS REFRIGERADOS</span>
+              <h2>Baús refrigerados</h2>
+              <p>Todas as placas classificadas como carreta/baú, com o status operacional e a OS quando houver.</p>
+            </div>
+            <strong>{refrigeratedTrailers.length} baús · {maintenanceTrailers.length} em manutenção</strong>
+          </div>
+
+          <div className="trailer-maintenance-table">
+            <div className="trailer-maintenance-row trailer-maintenance-header">
+              <span></span><span>Status</span><span>Placa</span><span>Tipo</span><span>OS</span><span>Manutenção</span><span>Local</span><span>Aberta em</span>
+            </div>
+            {refrigeratedTrailers.map(vehicle => {
+              const isOpen = openTrailerPlate === vehicle.plate
+              const plate = cleanVehiclePlate(vehicle.plate)
+              const mapping = mappingByPlate.get(plate)
+              const parent = trailerParentByPlate.get(plate)
+              return (
+                <div className="trailer-maintenance-block" key={vehicle.plate}>
+                  <div className="trailer-maintenance-row">
+                    <button className="expand-btn" onClick={() => setOpenTrailerPlate(isOpen ? null : vehicle.plate)}>
+                      {isOpen ? <ChevronUp/> : <ChevronDown/>}
+                    </button>
+                    {vehicle.operationalStatus === 'MAINTENANCE' ? (
+                      <StatusBadge status="MAINTENANCE"/>
+                    ) : parent || vehicle.operationalStatus === 'COMMITTED' || vehicle.operationalStatus === 'IN_TRANSIT' ? (
+                      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#9a5b00',background:'#fff1d6',borderRadius:999,padding:'8px 12px'}}>Ocupado</span>
+                    ) : (
+                      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#087a43',background:'#e8f8ef',borderRadius:999,padding:'8px 12px'}}>Livre</span>
+                    )}
+                    <strong>{vehicle.plate}</strong>
+                    <span>{vehicleTypeText(vehicle, mapping)}</span>
+                    <strong>{vehicle.maintenance?.serviceOrderId ? `#${vehicle.maintenance.serviceOrderId}` : (parent ? 'ATRELADO' : '—')}</strong>
+                    <span>{vehicle.maintenance?.type || (parent ? `Placa mãe ${parent.plate}` : '—')}</span>
+                    <span>{vehicle.maintenance?.branch || (parent ? serviceText(parent, mappingByPlate.get(cleanVehiclePlate(parent.plate))) : '—')}</span>
+                    <span>{vehicle.maintenance?.openedAt ? shortDate(vehicle.maintenance.openedAt) : (parent ? parent.manifest?.numero ? `Manifesto #${parent.manifest.numero}` : 'Operação ativa' : '—')}</span>
+                  </div>
+                  {isOpen && <div className="trailer-maintenance-expanded"><ExpandedRow vehicle={vehicle}/></div>}
+                </div>
+              )
+            })}
+            {!refrigeratedTrailers.length && (
+              <div className="trailer-maintenance-empty">Nenhum baú/carreta refrigerada encontrado no mapeamento ou nos manifestos.</div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

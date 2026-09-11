@@ -60,6 +60,12 @@ export interface Vehicle {
   utilizationPercent: number | null
   manifest: ManifestSummary | null
   maintenance: MaintenanceSummary | null
+  /** Todos os manifestos ainda ativos/empenhados da placa. */
+  activeManifests?: ManifestSummary[]
+  activeManifestCount?: number
+  /** Ex.: OS pendente ao mesmo tempo em que há serviço ativo. */
+  hasInconsistency?: boolean
+  inconsistencyReason?: string
 }
 
 export interface BreakdownItem {

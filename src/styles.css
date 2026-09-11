@@ -491,3 +491,172 @@ button,a,.fleet-row,.group-card,.tractor-list button,.trailer-pool button{transi
 .mapping-card-excel-actions-v23 button:hover{border-color:#16833f;color:#137237;background:#f5fbf7}
 .mapping-card-excel-actions-v23 button:disabled{opacity:.45;cursor:wait}
 .mapping-card-excel-actions-v23 svg{width:14px;height:14px}
+
+/* V17.25 - múltiplos serviços ativos + inconsistência operacional */
+@keyframes inconsistencyPulse{
+  0%,100%{box-shadow:inset 0 0 0 2px rgba(222,28,39,.16);background:#fff}
+  50%{box-shadow:inset 0 0 0 3px rgba(222,28,39,.72),0 0 18px rgba(222,28,39,.18);background:#fff3f4}
+}
+.fleet-row.has-inconsistency{animation:inconsistencyPulse 1.15s ease-in-out infinite}
+.fleet-row.has-inconsistency:before{background:var(--red)!important;width:6px}
+.fleet-row.has-inconsistency:after{content:"⚠ INCONSISTÊNCIA";position:absolute;right:10px;top:4px;background:var(--red);color:#fff;border-radius:999px;padding:3px 7px;font-size:7px;font-weight:950;letter-spacing:.055em;z-index:2}
+.vehicle-details-stack{display:flex;flex-direction:column;gap:12px}
+.expanded-section{display:flex;flex-direction:column;gap:8px}
+.expanded-section-title{display:flex;align-items:center;gap:7px;font-size:11px}
+.expanded-section-title>svg{color:#555}
+.service-title-line{justify-content:space-between}
+.service-title-line>div{display:flex;align-items:baseline;gap:8px}
+.service-title-line span{font-size:9px;color:#7a7a80}
+.operational-inconsistency{display:flex;align-items:center;gap:9px;background:#fff0f1;border:1px solid #ffbfc4;border-left:5px solid var(--red);border-radius:10px;padding:10px 12px;color:#a80e18;animation:inconsistencyPulse 1.15s ease-in-out infinite}
+.operational-inconsistency>svg{flex:0 0 auto}
+.operational-inconsistency>div{display:flex;flex-direction:column;gap:2px}
+.operational-inconsistency strong{font-size:11px}
+.operational-inconsistency span{font-size:9px}
+.no-active-services{background:#fff;border:1px dashed #ddd;border-radius:9px;padding:12px;color:#777;font-size:10px}
+.active-service-list{display:flex;flex-direction:column;gap:6px}
+.active-service-card{background:#fff;border:1px solid #e8e8eb;border-radius:11px;overflow:hidden}
+.active-service-card.service-transit{border-left:4px solid var(--red)}
+.active-service-card.service-committed{border-left:4px solid var(--amber)}
+.active-service-summary{width:100%;display:grid;grid-template-columns:105px minmax(230px,1fr) minmax(240px,1fr) 30px;align-items:center;gap:10px;border:0;background:#fff;padding:10px 12px;text-align:left;cursor:pointer}
+.active-service-summary:hover{background:#fafafa}
+.service-state-badge{display:inline-flex;width:max-content;border-radius:999px;padding:6px 9px;font-size:9px;font-weight:900}
+.service-state-badge.transit{background:#fff0f1;color:var(--red)}
+.service-state-badge.committed{background:#fff4df;color:#9a5e00}
+.service-main-info,.service-destination-info{display:flex;flex-direction:column;min-width:0;gap:2px}
+.service-main-info strong,.service-destination-info strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.service-main-info span,.service-destination-info span{font-size:9px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.service-expand-icon{display:grid;place-items:center;color:#555}
+.service-manifest-detail{border-top:1px solid #eee;background:#fafafa;padding:11px 12px 12px}
+@media(max-width:1100px){.active-service-summary{grid-template-columns:100px 1fr 30px}.service-destination-info{display:none}}
+
+/* V17.26 · aba separada para baús/carretas refrigeradas em manutenção */
+.asset-tabs{display:flex;gap:10px;align-items:center;margin:16px 18px 10px}
+.asset-tabs button{display:inline-flex;align-items:center;gap:8px;border:1px solid #dfe3e8;background:#fff;border-radius:12px;padding:10px 14px;font-weight:800;color:#30343b;cursor:pointer}
+.asset-tabs button svg{width:17px;height:17px}
+.asset-tabs button b{min-width:24px;height:24px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#eef1f4;color:#1f2937}
+.asset-tabs button.active{background:#111827;color:#fff;border-color:#111827}
+.asset-tabs button.active b{background:#fff;color:#111827}
+.trailer-maintenance-panel{margin:0 18px 24px;border:1px solid #e2e5e9;border-radius:16px;background:#fff;overflow:hidden}
+.trailer-maintenance-headline{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 22px;border-bottom:1px solid #eceef1}
+.trailer-maintenance-headline h2{margin:3px 0 4px;font-size:22px}
+.trailer-maintenance-headline p{margin:0;color:#667085}
+.trailer-maintenance-headline>strong{white-space:nowrap;background:#eaf2ff;color:#1657c8;border-radius:999px;padding:9px 13px}
+.trailer-maintenance-table{width:100%}
+.trailer-maintenance-row{display:grid;grid-template-columns:44px 150px 120px 190px 100px 170px minmax(160px,1fr) 120px;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #eff1f3;min-height:58px}
+.trailer-maintenance-header{background:#f8f9fb;color:#737b87;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;min-height:42px}
+.trailer-maintenance-row>strong{font-size:15px}
+.trailer-maintenance-expanded{padding:0 14px 14px;background:#fcfcfd;border-bottom:1px solid #eff1f3}
+.trailer-maintenance-empty{padding:34px;text-align:center;color:#7b8490}
+@media (max-width:1200px){.trailer-maintenance-table{overflow-x:auto}.trailer-maintenance-row{min-width:1100px}}
+
+/* V17.26 · aba separada para baús/carretas refrigeradas em manutenção */
+.asset-tabs{display:flex;gap:10px;align-items:center;margin:16px 18px 10px}
+.asset-tabs button{display:inline-flex;align-items:center;gap:8px;border:1px solid #dfe3e8;background:#fff;border-radius:12px;padding:10px 14px;font-weight:800;color:#30343b;cursor:pointer}
+.asset-tabs button svg{width:17px;height:17px}
+.asset-tabs button b{min-width:24px;height:24px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#eef1f4;color:#1f2937}
+.asset-tabs button.active{background:#111827;color:#fff;border-color:#111827}
+.asset-tabs button.active b{background:#fff;color:#111827}
+.trailer-maintenance-panel{margin:0 18px 24px;border:1px solid #e2e5e9;border-radius:16px;background:#fff;overflow:hidden}
+.trailer-maintenance-headline{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 22px;border-bottom:1px solid #eceef1}
+.trailer-maintenance-headline h2{margin:3px 0 4px;font-size:22px}
+.trailer-maintenance-headline p{margin:0;color:#667085}
+.trailer-maintenance-headline>strong{white-space:nowrap;background:#eaf2ff;color:#1657c8;border-radius:999px;padding:9px 13px}
+.trailer-maintenance-table{width:100%}
+.trailer-maintenance-row{display:grid;grid-template-columns:44px 150px 120px 190px 100px 170px minmax(160px,1fr) 120px;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #eff1f3;min-height:58px}
+.trailer-maintenance-header{background:#f8f9fb;color:#737b87;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;min-height:42px}
+.trailer-maintenance-row>strong{font-size:15px}
+.trailer-maintenance-expanded{padding:0 14px 14px;background:#fcfcfd;border-bottom:1px solid #eff1f3}
+.trailer-maintenance-empty{padding:34px;text-align:center;color:#7b8490}
+@media (max-width:1200px){.trailer-maintenance-table{overflow-x:auto}.trailer-maintenance-row{min-width:1100px}}
+
+/* V17.29 · tabela da frota responsiva sem esconder colunas em desktop */
+body{min-width:1024px}
+.tv-app{width:100%;max-width:1920px;padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+
+/* A grade antiga usava larguras fixas que ultrapassavam a viewport. */
+.fleet-head,.fleet-row{
+  width:100%;
+  grid-template-columns:
+    34px
+    minmax(108px,.82fr)
+    minmax(82px,.66fr)
+    minmax(92px,.78fr)
+    minmax(98px,.82fr)
+    minmax(108px,.9fr)
+    minmax(145px,1.25fr)
+    minmax(70px,.62fr)
+    minmax(92px,.78fr)
+    minmax(125px,1.18fr)
+    minmax(102px,.88fr)
+    minmax(118px,1fr);
+  column-gap:clamp(4px,.45vw,8px);
+}
+.fleet-head{padding-left:8px;padding-right:8px;font-size:clamp(7px,.52vw,9px)}
+.fleet-row{padding-left:8px;padding-right:8px;font-size:clamp(10px,.72vw,13px)}
+.fleet-row>*{min-width:0}
+.row-plate{font-size:clamp(14px,1vw,18px)}
+.fleet-row>span,.fleet-row>strong{overflow:hidden;text-overflow:ellipsis}
+.fleet-row .destination{white-space:normal;line-height:1.18;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.third-party,.own-fleet{max-width:100%;padding:5px 7px;font-size:clamp(9px,.65vw,11px)}
+.trailers-cell{max-width:100%}
+.capacity-cell{min-width:0}
+.capacity-unknown{white-space:normal;line-height:1.1}
+.capacity-unknown span{display:block}
+
+/* Cabeçalho e filtros também passam a caber melhor na largura disponível. */
+.top{gap:14px;flex-wrap:wrap}
+.header-actions{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.filters{
+  grid-template-columns:minmax(220px,1.55fr) minmax(130px,.7fr) minmax(150px,.8fr) minmax(145px,.8fr) minmax(145px,.8fr) minmax(120px,.7fr);
+}
+.filters>*,.filters select{min-width:0}
+
+/* Aba de baús: usa a largura toda sem criar scroll desnecessário. */
+.trailer-maintenance-row{
+  width:100%;
+  grid-template-columns:38px minmax(115px,.8fr) minmax(105px,.75fr) minmax(130px,.95fr) minmax(78px,.55fr) minmax(125px,.9fr) minmax(135px,1.2fr) minmax(105px,.75fr);
+  gap:clamp(5px,.55vw,12px);
+}
+.trailer-maintenance-row>*{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+@media(max-width:1450px){
+  .top h1{font-size:30px}
+  .brand-area img{width:98px;height:62px}
+  .header-actions button,.header-actions a{padding:8px;font-size:9px}
+  .fleet-head,.fleet-row{
+    grid-template-columns:32px 105px 80px 90px 94px 105px 140px 68px 88px minmax(116px,1.1fr) 98px 112px;
+    column-gap:4px;
+  }
+  .fleet-row{font-size:10.5px}
+  .badge{padding:6px 8px;font-size:9px}
+  .badge svg{width:12px}
+  .filters{grid-template-columns:minmax(210px,1.35fr) 130px 150px 145px 145px 115px}
+}
+
+@media(max-width:1220px){
+  .tv-app{padding-left:10px;padding-right:10px}
+  .top{padding:14px 16px}
+  .top h1{font-size:26px}
+  .top p{font-size:10px}
+  .filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .filters .search{grid-column:span 2}
+  .filters>strong{text-align:left}
+  .fleet-head,.fleet-row{
+    grid-template-columns:30px 96px 74px 82px 86px 94px 126px 62px 80px minmax(105px,1fr) 90px 100px;
+    column-gap:3px;
+  }
+  .fleet-head{font-size:7px}
+  .fleet-row{font-size:9.5px}
+  .row-plate{font-size:13px}
+  .badge{padding:5px 6px;font-size:8px}
+  .own-fleet,.third-party{font-size:8px;padding:4px 5px}
+}
+
+/* Só abaixo de 1024px usamos rolagem horizontal; em notebooks/desktops todas as colunas ficam visíveis. */
+@media(max-width:1023px){
+  body{min-width:0}
+  .fleet-table{overflow-x:auto}
+  .fleet-head,.fleet-row{min-width:1080px}
+  .trailer-maintenance-table{overflow-x:auto}
+  .trailer-maintenance-row{min-width:950px}
+}
