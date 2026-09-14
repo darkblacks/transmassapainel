@@ -47,6 +47,27 @@ function collectionAddress(coleta: Record<string, unknown>): string {
     .join(', ') || 'Endereço da coleta não cadastrado'
 }
 
+function auditDate(record: Record<string, unknown>, kind: 'COLLECTION' | 'DELIVERY'): string {
+  const candidates: Array<[string, unknown]> = kind === 'COLLECTION'
+    ? [
+        ['Data da coleta', record.data_coleta],
+        ['Data da coleta', record.dt_coleta],
+        ['Previsão da coleta', record.previsao_coleta],
+        ['Data', record.data]
+      ]
+    : [
+        ['Data da entrega', record.data_entrega],
+        ['Data da entrega', record.dt_entrega],
+        ['Previsão de entrega', record.previsao_entrega],
+        ['Previsão de entrega', record.data_previsao],
+        ['Data de saída', record.data_saida],
+        ['Data', record.data]
+      ]
+
+  const found = candidates.find(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+  return found ? `${found[0]}: ${when(found[1])}` : 'Data não informada'
+}
+
 function isCollectionManifest(manifest: ManifestSummary): boolean {
   return manifest.operationContext?.kind === 'COLLECTION' ||
     String(manifest.service || '').trim().toLowerCase().includes('coleta')
@@ -256,6 +277,7 @@ export default function ExpandedRow({ vehicle }: Props) {
                               <div key={String(coleta.numero ?? index)}>
                                 <span>{String(coleta.remetente_fantasia ?? coleta.remetente_nome ?? `Coleta ${index + 1}`)}</span>
                                 <b>{collectionAddress(coleta)}</b>
+                                <span>{auditDate(coleta, 'COLLECTION')}</span>
                               </div>
                             ))}
                           </div>
@@ -290,6 +312,7 @@ export default function ExpandedRow({ vehicle }: Props) {
                               <div key={String(frete.id ?? index)}>
                                 <strong>{String(frete.destinatario_fantasia ?? frete.destinatario_nome ?? 'Destino')}</strong>
                                 <span>{freightAddress(frete)}</span>
+                                <span>{auditDate(frete, 'DELIVERY')}</span>
                               </div>
                             ))}
                           </div>
