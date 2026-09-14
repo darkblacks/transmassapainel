@@ -1,11 +1,29 @@
 export type OperationalStatus = 'AVAILABLE' | 'COMMITTED' | 'IN_TRANSIT' | 'MAINTENANCE'
 export type Ownership = 'OWN' | 'THIRD_PARTY'
 
+export interface OperationalInconsistency {
+  type?: string
+  severity?: string
+  message?: string
+}
+
+export interface OperationalAlert {
+  type?: string
+  severity?: string
+  manifestId?: number
+  manifestNumber?: string | number
+  manifestStatus?: string
+  serviceOrderId?: number
+  serviceOrderNumber?: string | number
+  message?: string
+}
+
 export interface ManifestSummary {
   id: number
   numero: string | number
   referencia?: string
   data?: string
+  generatedAt?: string | null
   previsaoSaida?: string
   saida?: string
   chegada?: string
@@ -15,6 +33,7 @@ export interface ManifestSummary {
   reboque1?: string
   reboque2?: string
   trailers: string[]
+  trailerIds?: number[]
   quantidadeDestinos: number
   qtdNf: number
   volumesNf: number
@@ -23,9 +42,11 @@ export interface ManifestSummary {
   transferencias: number
   coletas: number
   service: string
+  operationallyValid?: boolean
+  inconsistency?: OperationalInconsistency | null
   operationContext?: {
     label: string
-    kind: 'TRANSFER' | 'DISTRIBUTION' | 'COLLECTION' | 'OTHER'
+    kind: 'TRANSFER' | 'DISTRIBUTION' | 'COLLECTION' | 'OTHER' | 'UNKNOWN'
     details: string[]
   } | null
   destinationText?: string
@@ -35,16 +56,25 @@ export interface ManifestSummary {
 }
 
 export interface MaintenanceSummary {
+  id?: number
   serviceOrderId?: string | number
+  serviceOrderNumber?: string | number
   status?: string
   type?: string
-  openedAt?: string
+  location?: string
+  description?: string
+  openedAt?: string | null
+  updatedAt?: string | null
   days?: string | number
+  daysInMaintenance?: string | number
   odometer?: string | number
   laborThird?: unknown
   laborOwn?: unknown
+  laborTotal?: unknown
   parts?: unknown
+  partsTotal?: unknown
   total?: unknown
+  vehicleModel?: string
   branch?: string
 }
 
@@ -63,6 +93,7 @@ export interface Vehicle {
   /** Todos os manifestos ainda ativos/empenhados da placa. */
   activeManifests?: ManifestSummary[]
   activeManifestCount?: number
+  operationalAlerts?: OperationalAlert[]
   /** Ex.: OS pendente ao mesmo tempo em que há serviço ativo. */
   hasInconsistency?: boolean
   inconsistencyReason?: string
@@ -140,6 +171,8 @@ export interface ManifestDetail {
 
 export interface MaintenanceDetail extends MaintenanceSummary {
   plate: string
+  active?: MaintenanceSummary | null
+  history?: MaintenanceSummary[]
 }
 
 export interface FleetCatalogItem {
@@ -157,7 +190,6 @@ export interface CouplingFleet {
     updatedAt: string
   }>
 }
-
 
 export interface TrailerHistoryRow {
   trailerPlate: string
@@ -232,8 +264,6 @@ export interface OsHistoryDetail {
   }>
 }
 
-
-
 export interface VehicleHistoryOs {
   os?: string
   date?: string | null
@@ -247,7 +277,6 @@ export interface VehicleHistoryOs {
   odometer?: string | number
 }
 
-
 export interface FleetMappingGroup {
   id: number | 'total'
   name: string
@@ -258,6 +287,7 @@ export interface FleetMappingGroup {
   member_count?: number | null
   bases?: Array<{ base_code: string; total: number }>
 }
+
 export interface FleetMappingMember {
   id?: number
   plate: string
@@ -280,6 +310,7 @@ export interface FleetThirdParty {
   created_at?: string
   updated_at?: string
 }
+
 export interface FleetBaseCode {
   code: string
   label: string
