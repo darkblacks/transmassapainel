@@ -46,6 +46,80 @@ api.interceptors.response.use(
   }
 )
 
+
+const serviceOrderHistoryCache = new Map<string, Record<string, unknown>>()
+
+function normalizePlate(value: unknown): string {
+  return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function maintenanceIsOpen(status: unknown): boolean {
+  const value = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+  return (
+    value.includes('pendente') ||
+    value.includes('aberto') ||
+    value.includes('andamento') ||
+    value.includes('aguard')
+  )
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const index = nextIndex++
+      if (index >= items.length) return
+      results[index] = await worker(items[index])
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runWorker())
+  )
+
+  return results
+}
+
+function maintenanceToHistoryRow(
+  plate: string,
+  item: MaintenanceDetail | NonNullable<MaintenanceDetail['active']>
+): import('../types').OsHistoryRow {
+  const os = String(item.serviceOrderNumber || item.serviceOrderId || item.id || '')
+  const row: import('../types').OsHistoryRow = {
+    os,
+    plate: normalizePlate(plate),
+    status: String(item.status || ''),
+    openedAt: item.openedAt ? String(item.openedAt) : null,
+    closedAt: maintenanceIsOpen(item.status) ? null : (item.updatedAt ? String(item.updatedAt) : null),
+    total: item.total == null ? null : Number(item.total),
+    branch: String(item.branch || ''),
+    maintenanceType: String(item.type || ''),
+    odometer: item.odometer == null ? null : item.odometer,
+    daysInMaintenance: item.daysInMaintenance == null ? null : item.daysInMaintenance,
+    laborThird: item.laborTotal == null ? null : String(item.laborTotal),
+    laborOwn: null,
+    parts: item.partsTotal == null ? null : String(item.partsTotal),
+    isOpen: maintenanceIsOpen(item.status),
+    firstSeenAt: item.openedAt ? String(item.openedAt) : null,
+    changedAt: item.updatedAt ? String(item.updatedAt) : null,
+    payload: item as unknown as Record<string, unknown>
+  }
+
+  if (os) serviceOrderHistoryCache.set(os, row as unknown as Record<string, unknown>)
+  return row
+}
+
+
 export function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) || ''
 }
@@ -128,23 +202,160 @@ export async function setActiveFleetGroup(groupId: number): Promise<Preference> 
 }
 
 export async function getPublicCouplingFleet(): Promise<CouplingFleet> {
-  return (await api.get('/api/public/coupling-fleet')).data
+  const [catalog, overviewData] = await Promise.all([
+    getFleetCatalog(),
+    getOverview()
+  ])
+
+  const trailerMap = new Map<string, FleetCatalogItem>()
+  const couplingMap = new Map<string, { tractorPlate: string; trailers: string[]; updatedAt: string }>()
+
+  for (const vehicle of overviewData.vehicles || []) {
+    const tractorPlate = normalizePlate(vehicle.plate)
+    if (!tractorPlate) continue
+
+    const trailers = Array.from(new Set(
+      (vehicle.activeManifests || [])
+        .flatMap(manifest => manifest.trailers || [])
+        .map(normalizePlate)
+        .filter(Boolean)
+    ))
+
+    if (!trailers.length) continue
+
+    for (const plate of trailers) {
+      if (!trailerMap.has(plate)) {
+        trailerMap.set(plate, {
+          plate,
+          vehicleType: 'Carreta',
+          source: 'MYSQL / manifestos'
+        })
+      }
+    }
+
+    const manifestDates = (vehicle.activeManifests || [])
+      .map(manifest => manifest.generatedAt || manifest.data || '')
+      .filter(Boolean)
+      .sort()
+
+    const latest =
+      manifestDates.length > 0
+        ? manifestDates[manifestDates.length - 1]
+        : overviewData.generatedAt
+
+    couplingMap.set(tractorPlate, {
+      tractorPlate,
+      trailers,
+      updatedAt: String(latest || overviewData.generatedAt)
+    })
+  }
+
+  return {
+    tractors: catalog,
+    trailers: Array.from(trailerMap.values()).sort((a, b) => a.plate.localeCompare(b.plate)),
+    couplings: Array.from(couplingMap.values()).sort((a, b) => a.tractorPlate.localeCompare(b.tractorPlate))
+  }
 }
 
-export async function savePublicCoupling(plate: string, trailers: string[]): Promise<void> {
-  await api.put(`/api/public/couplings/${encodeURIComponent(plate)}`, { trailers })
+export async function savePublicCoupling(_plate: string, _trailers: string[]): Promise<void> {
+  throw new Error('Edição manual de acoplamento não está disponível no backend atual. O painel usa os reboques dos manifestos.')
 }
 
 export async function getTrailerHistory(): Promise<TrailerHistoryResponse> {
-  return (await api.get('/api/history/trailers')).data
+  const overviewData = await getOverview()
+  const current: TrailerHistoryResponse['current'] = []
+
+  for (const vehicle of overviewData.vehicles || []) {
+    for (const manifest of vehicle.activeManifests || []) {
+      for (const trailer of manifest.trailers || []) {
+        const trailerPlate = normalizePlate(trailer)
+        if (!trailerPlate) continue
+
+        current.push({
+          trailerPlate,
+          tractorPlate: normalizePlate(vehicle.plate),
+          manifestId: Number(manifest.id || 0),
+          manifestNumber: manifest.numero || manifest.id,
+          status: String(manifest.status || ''),
+          driver: String(manifest.motorista || ''),
+          date: manifest.generatedAt || manifest.data || null,
+          departureAt: manifest.saida || null,
+          arrivalAt: manifest.chegada || null,
+          current: true
+        })
+      }
+    }
+  }
+
+  current.sort((a, b) =>
+    String(b.date || '').localeCompare(String(a.date || ''))
+  )
+
+  return {
+    current,
+    // O backend atual só expõe os manifestos ativos no overview.
+    // Não inventamos histórico encerrado que não existe nessa API.
+    history: []
+  }
 }
 
-export async function getServiceOrderHistory(): Promise<OsHistoryResponse> {
-  return (await api.get('/api/history/service-orders')).data
+export async function getServiceOrderHistory(months = 24): Promise<OsHistoryResponse> {
+  const catalog = await getFleetCatalog()
+  const plates = Array.from(new Set(
+    catalog.map(item => normalizePlate(item.plate)).filter(Boolean)
+  ))
+
+  const minDate = new Date()
+  minDate.setMonth(minDate.getMonth() - Math.max(1, months))
+
+  const chunks = await mapWithConcurrency(plates, 6, async plate => {
+    try {
+      const detail = await getMaintenanceDetail(plate)
+      const history = Array.isArray(detail.history) ? detail.history : []
+
+      return history.map(item => maintenanceToHistoryRow(plate, item))
+    } catch {
+      return []
+    }
+  })
+
+  const rows = chunks
+    .flat()
+    .filter(row => {
+      if (!row.openedAt) return true
+      const time = new Date(row.openedAt).getTime()
+      return Number.isNaN(time) || time >= minDate.getTime()
+    })
+    .sort((a, b) =>
+      String(b.openedAt || '').localeCompare(String(a.openedAt || ''))
+    )
+
+  return {
+    available: true,
+    sourceTable: 'os via /api/tv/maintenance/:plate',
+    rows
+  }
 }
 
 export async function getServiceOrderHistoryDetail(osId: string): Promise<OsHistoryDetail> {
-  return (await api.get(`/api/history/service-orders/${encodeURIComponent(osId)}`)).data
+  let current = serviceOrderHistoryCache.get(String(osId))
+
+  if (!current) {
+    const data = await getServiceOrderHistory()
+    current = data.rows.find(row => String(row.os) === String(osId)) as unknown as Record<string, unknown> | undefined
+  }
+
+  if (!current) {
+    return {
+      current: { os: osId },
+      history: []
+    }
+  }
+
+  return {
+    current,
+    history: []
+  }
 }
 
 export async function getFleetMappingGroups(): Promise<FleetMappingGroup[]> {
@@ -202,22 +413,31 @@ export async function getFleetServiceOrders(
   reason?: string
 }> {
   try {
-    const response = await api.get('/api/history/service-orders', {
-      params: { months, _ts: Date.now() },
-      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
-      timeout: 30000
-    })
-    const payload = response.data || {}
+    const data = await getServiceOrderHistory(months)
+
     return {
-      available: payload.available !== false,
-      rows: Array.isArray(payload.rows) ? payload.rows : [],
-      reason: payload.reason
+      available: data.available,
+      rows: data.rows.map(row => ({
+        os: row.os,
+        plate: row.plate,
+        date: row.openedAt,
+        branch: row.branch,
+        status: row.status,
+        type: row.maintenanceType,
+        total: row.total == null ? undefined : Number(row.total),
+        parts: row.parts == null ? undefined : Number(row.parts),
+        laborOwn: row.laborOwn == null ? undefined : Number(row.laborOwn),
+        laborThird: row.laborThird == null ? undefined : Number(row.laborThird),
+        odometer: row.odometer == null ? undefined : row.odometer,
+        daysInMaintenance: row.daysInMaintenance == null ? undefined : row.daysInMaintenance
+      })),
+      reason: data.reason
     }
   } catch (error: any) {
     return {
       available: false,
       rows: [],
-      reason: error?.response?.data?.message || error?.message || 'Endpoint de OS indisponível.'
+      reason: error?.response?.data?.message || error?.message || 'Não foi possível consultar as OS por placa.'
     }
   }
 }
@@ -299,7 +519,11 @@ export async function mirrorVehicle(plate: string): Promise<unknown> {
 }
 
 export async function openServiceOrders(): Promise<unknown> {
-  return (await api.get('/api/history/service-orders')).data
+  const data = await getServiceOrderHistory()
+  return {
+    ...data,
+    rows: data.rows.filter(row => row.isOpen)
+  }
 }
 
 export default api
