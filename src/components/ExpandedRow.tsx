@@ -110,6 +110,30 @@ export default function ExpandedRow({ vehicle }: Props) {
 
     return () => { alive = false }
   }, [services])
+  const currentMaintenance = maintenance?.active || maintenance || vehicle.maintenance
+
+  const maintenanceLocation = normalizedStatus(currentMaintenance?.location)
+  const maintenanceLaborTotal = currentMaintenance?.laborTotal
+
+  const maintenanceParts =
+    currentMaintenance?.partsTotal ?? currentMaintenance?.parts
+
+  const maintenanceLaborOwn =
+    currentMaintenance?.laborOwn ??
+    (maintenanceLocation.includes('própr') || maintenanceLocation.includes('propr')
+      ? maintenanceLaborTotal
+      : null)
+
+  const maintenanceLaborThird =
+    currentMaintenance?.laborThird ??
+    (maintenanceLocation.includes('terceir')
+      ? maintenanceLaborTotal
+      : null)
+
+  const maintenanceOs =
+    currentMaintenance?.serviceOrderNumber ??
+    currentMaintenance?.serviceOrderId
+
   async function toggleManifest(manifest: ManifestSummary) {
     const id = Number(manifest.id)
     if (!Number.isFinite(id)) return
@@ -154,15 +178,15 @@ export default function ExpandedRow({ vehicle }: Props) {
           </div>
 
           {maintenanceError && <div className="expand-error">{maintenanceError}</div>}
-          {!maintenance && !maintenanceError && <div className="expand-loading">Carregando manutenção...</div>}
-          {maintenance && (
+          {!currentMaintenance && !maintenanceError && <div className="expand-loading">Carregando manutenção...</div>}
+          {currentMaintenance && (
             <div className="maintenance-expand">
-              <div className="maint-cost"><span>OS</span><strong>#{maintenance.serviceOrderId || '—'}</strong></div>
-              <div className="maint-cost"><span>Peças</span><strong>{money(maintenance.parts)}</strong></div>
-              <div className="maint-cost"><span>M.O. própria</span><strong>{money(maintenance.laborOwn)}</strong></div>
-              <div className="maint-cost"><span>M.O. terceiros</span><strong>{money(maintenance.laborThird)}</strong></div>
-              <div className="maint-cost total"><span>Total da OS</span><strong>{money(maintenance.total)}</strong></div>
-              <div className="maint-cost"><span>OS aberta em</span><strong>{when(maintenance.openedAt)}</strong></div>
+              <div className="maint-cost"><span>OS</span><strong>#{maintenanceOs || '—'}</strong></div>
+              <div className="maint-cost"><span>Peças</span><strong>{money(maintenanceParts)}</strong></div>
+              <div className="maint-cost"><span>M.O. própria</span><strong>{money(maintenanceLaborOwn)}</strong></div>
+              <div className="maint-cost"><span>M.O. terceiros</span><strong>{money(maintenanceLaborThird)}</strong></div>
+              <div className="maint-cost total"><span>Total da OS</span><strong>{money(currentMaintenance.total)}</strong></div>
+              <div className="maint-cost"><span>OS aberta em</span><strong>{when(currentMaintenance.openedAt)}</strong></div>
             </div>
           )}
         </section>
