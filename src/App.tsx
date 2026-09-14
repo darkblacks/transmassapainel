@@ -132,15 +132,30 @@ function driverText(vehicle: Vehicle, mapping?: FleetMappingMember): string {
   return mapping?.driver_name || '—'
 }
 
+function activeVehicleManifests(vehicle: Vehicle) {
+  return vehicle.activeManifests?.length
+    ? vehicle.activeManifests
+    : (vehicle.manifest ? [vehicle.manifest] : [])
+}
+
+function vehicleServiceLabels(vehicle: Vehicle): string[] {
+  return [...new Set(
+    activeVehicleManifests(vehicle)
+      .map(manifest => operationLabel(manifest))
+      .filter(label => Boolean(label))
+  )]
+}
+
 function serviceText(vehicle: Vehicle, _mapping?: FleetMappingMember): string {
-  return operationLabel(vehicle.manifest)
+  const labels = vehicleServiceLabels(vehicle)
+  return labels.length ? labels.join(' + ') : operationLabel(vehicle.manifest)
 }
 
 function serviceKindText(vehicle: Vehicle, _mapping?: FleetMappingMember): 'DISTRIBUTION' | 'TRANSFER' | 'COLLECTION' | 'OTHER' {
-  const label = operationLabel(vehicle.manifest)
-  if (label === DISTRIBUTION_SERVICE) return 'DISTRIBUTION'
-  if (label === TRANSFER_SERVICE) return 'TRANSFER'
-  if (label === COLLECTION_SERVICE) return 'COLLECTION'
+  const labels = vehicleServiceLabels(vehicle)
+  if (labels.includes(DISTRIBUTION_SERVICE)) return 'DISTRIBUTION'
+  if (labels.includes(TRANSFER_SERVICE)) return 'TRANSFER'
+  if (labels.includes(COLLECTION_SERVICE)) return 'COLLECTION'
   return 'OTHER'
 }
 
@@ -647,11 +662,9 @@ function Panel({
 
   const services = useMemo(() => {
     return [...new Set(
-      effectiveVehicles
-        .map(v => serviceText(v, mappingByPlate.get(cleanVehiclePlate(v.plate))))
-        .filter((value): value is string => Boolean(value))
+      effectiveVehicles.flatMap(vehicle => vehicleServiceLabels(vehicle))
     )].sort()
-  }, [effectiveVehicles, mappingByPlate])
+  }, [effectiveVehicles])
 
   // Base dos KPIs:
   // aplica TODOS os filtros ativos (tipo, vínculo, serviço e busca),
@@ -676,7 +689,7 @@ function Panel({
       }
 
       if (ownership && effectiveOwnership(vehicle, mapping) !== ownership) return false
-      if (service && serviceText(vehicle, mapping) !== service) return false
+      if (service && !vehicleServiceLabels(vehicle).includes(service)) return false
 
       if (!q) return true
 
