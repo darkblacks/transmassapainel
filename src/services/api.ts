@@ -18,6 +18,7 @@ import type {
   FleetThirdParty,
   VehicleHistoryOs
 } from '../types'
+import { getVehicleAttention } from '../utils/operationalAttention'
 
 export const TOKEN_KEY = 'transmassa_token'
 const USER_KEY = 'transmassa_user'
@@ -80,7 +81,19 @@ export async function me(): Promise<Session> {
 }
 
 export async function getOverview(): Promise<Overview> {
-  return (await api.get('/api/tv/overview')).data
+  const data = (await api.get('/api/tv/overview')).data as Overview
+
+  data.vehicles = (data.vehicles || []).map(vehicle => {
+    const attention = getVehicleAttention(vehicle)
+
+    return {
+      ...vehicle,
+      hasInconsistency: attention.needsAttention,
+      inconsistencyReason: attention.reasons.join(' • ')
+    }
+  })
+
+  return data
 }
 
 export async function getManifestDetail(id: number | string): Promise<ManifestDetail> {

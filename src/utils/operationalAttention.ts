@@ -19,14 +19,22 @@ export function isInvalidManifest(manifest: ManifestSummary): boolean {
   return manifest.operationallyValid === false || Boolean(manifest.inconsistency)
 }
 
-export function isManifestOlderThanFourDays(manifest: ManifestSummary, now = Date.now()): boolean {
+export function isManifestOlderThanFourDays(
+  manifest: ManifestSummary,
+  now = Date.now()
+): boolean {
   if (!manifest.generatedAt) return false
+
   const generatedAt = new Date(manifest.generatedAt).getTime()
   if (Number.isNaN(generatedAt)) return false
+
   return now - generatedAt > FOUR_DAYS_MS
 }
 
-export function getVehicleAttention(vehicle: Vehicle, now = Date.now()): VehicleAttention {
+export function getVehicleAttention(
+  vehicle: Vehicle,
+  now = Date.now()
+): VehicleAttention {
   const manifests = vehicle.activeManifests?.length
     ? vehicle.activeManifests
     : (vehicle.manifest ? [vehicle.manifest] : [])
@@ -40,12 +48,16 @@ export function getVehicleAttention(vehicle: Vehicle, now = Date.now()): Vehicle
 
     if (isInvalidManifest(manifest)) {
       if (id) invalidManifestIds.add(id)
-      reasons.push(`Manifesto #${manifest.numero || manifest.id} sem serviço / inconsistente`)
+      reasons.push(
+        `Manifesto #${manifest.numero || manifest.id} sem serviço / inconsistente`
+      )
     }
 
     if (isManifestOlderThanFourDays(manifest, now)) {
       if (id) staleManifestIds.add(id)
-      reasons.push(`Manifesto #${manifest.numero || manifest.id} aberto há mais de 4 dias`)
+      reasons.push(
+        `Manifesto #${manifest.numero || manifest.id} aberto há mais de 4 dias`
+      )
     }
   }
 
@@ -58,7 +70,9 @@ export function getVehicleAttention(vehicle: Vehicle, now = Date.now()): Vehicle
   }
 
   for (const alert of vehicle.operationalAlerts || []) {
-    if (alert?.message && !reasons.includes(alert.message)) reasons.push(alert.message)
+    if (alert?.message && !reasons.includes(alert.message)) {
+      reasons.push(alert.message)
+    }
   }
 
   return {
