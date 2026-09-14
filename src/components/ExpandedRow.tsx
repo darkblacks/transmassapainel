@@ -6,7 +6,6 @@ import type { MaintenanceDetail, ManifestDetail, ManifestSummary, Vehicle } from
 interface Props {
   vehicle: Vehicle
 }
-
 function money(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   const raw = String(value).trim()
@@ -18,7 +17,6 @@ function money(value: unknown): string {
     ? number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     : raw
 }
-
 function freightAddress(frete: Record<string, unknown>): string {
   return [
     frete.destinatario_endereco,
@@ -32,7 +30,6 @@ function freightAddress(frete: Record<string, unknown>): string {
     .filter(Boolean)
     .join(', ') || 'Endereço não cadastrado'
 }
-
 function collectionAddress(coleta: Record<string, unknown>): string {
   return [
     coleta.remetente_endereco,
@@ -46,28 +43,6 @@ function collectionAddress(coleta: Record<string, unknown>): string {
     .filter(Boolean)
     .join(', ') || 'Endereço da coleta não cadastrado'
 }
-
-function auditDate(record: Record<string, unknown>, kind: 'COLLECTION' | 'DELIVERY'): string {
-  const candidates: Array<[string, unknown]> = kind === 'COLLECTION'
-    ? [
-        ['Data da coleta', record.data_coleta],
-        ['Data da coleta', record.dt_coleta],
-        ['Previsão da coleta', record.previsao_coleta],
-        ['Data', record.data]
-      ]
-    : [
-        ['Data da entrega', record.data_entrega],
-        ['Data da entrega', record.dt_entrega],
-        ['Previsão de entrega', record.previsao_entrega],
-        ['Previsão de entrega', record.data_previsao],
-        ['Data de saída', record.data_saida],
-        ['Data', record.data]
-      ]
-
-  const found = candidates.find(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
-  return found ? `${found[0]}: ${when(found[1])}` : 'Data não informada'
-}
-
 function isCollectionManifest(manifest: ManifestSummary): boolean {
   return manifest.operationContext?.kind === 'COLLECTION' ||
     String(manifest.service || '').trim().toLowerCase().includes('coleta')
@@ -80,7 +55,6 @@ function when(value: unknown): string {
     ? String(value)
     : date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
-
 function normalizedStatus(value: unknown): string {
   return String(value || '').trim().toLowerCase()
 }
@@ -93,7 +67,6 @@ function serviceState(manifest: ManifestSummary): 'TRANSIT' | 'COMMITTED' {
 function serviceStateText(manifest: ManifestSummary): string {
   return serviceState(manifest) === 'TRANSIT' ? 'Em trânsito' : 'Contratado'
 }
-
 export default function ExpandedRow({ vehicle }: Props) {
   const [maintenance, setMaintenance] = useState<MaintenanceDetail | null>(null)
   const [maintenanceError, setMaintenanceError] = useState('')
@@ -101,7 +74,6 @@ export default function ExpandedRow({ vehicle }: Props) {
   const [details, setDetails] = useState<Record<number, ManifestDetail>>({})
   const [loadingId, setLoadingId] = useState<number | null>(null)
   const [manifestError, setManifestError] = useState<Record<number, string>>({})
-
   const services = useMemo<ManifestSummary[]>(() => {
     if (vehicle.activeManifests?.length) return vehicle.activeManifests
     return vehicle.manifest ? [vehicle.manifest] : []
@@ -114,7 +86,6 @@ export default function ExpandedRow({ vehicle }: Props) {
     setOpenManifestId(null)
     setDetails({})
     setManifestError({})
-
     if (vehicle.operationalStatus === 'MAINTENANCE') {
       getMaintenanceDetail(vehicle.plate)
         .then(data => alive && setMaintenance(data))
@@ -128,7 +99,6 @@ export default function ExpandedRow({ vehicle }: Props) {
   useEffect(() => {
     let alive = true
     const collections = services.filter(isCollectionManifest)
-
     Promise.allSettled(
       collections.map(async manifest => {
         const id = Number(manifest.id)
@@ -140,7 +110,6 @@ export default function ExpandedRow({ vehicle }: Props) {
 
     return () => { alive = false }
   }, [services])
-
   async function toggleManifest(manifest: ManifestSummary) {
     const id = Number(manifest.id)
     if (!Number.isFinite(id)) return
@@ -152,7 +121,6 @@ export default function ExpandedRow({ vehicle }: Props) {
 
     setOpenManifestId(id)
     if (details[id]) return
-
     setLoadingId(id)
     setManifestError(prev => ({ ...prev, [id]: '' }))
     try {
@@ -167,7 +135,6 @@ export default function ExpandedRow({ vehicle }: Props) {
       setLoadingId(current => current === id ? null : current)
     }
   }
-
   return (
     <div className="vehicle-details-stack">
       {vehicle.hasInconsistency && (
@@ -179,7 +146,6 @@ export default function ExpandedRow({ vehicle }: Props) {
           </div>
         </div>
       )}
-
       {vehicle.operationalStatus === 'MAINTENANCE' && (
         <section className="expanded-section">
           <div className="expanded-section-title">
@@ -189,7 +155,6 @@ export default function ExpandedRow({ vehicle }: Props) {
 
           {maintenanceError && <div className="expand-error">{maintenanceError}</div>}
           {!maintenance && !maintenanceError && <div className="expand-loading">Carregando manutenção...</div>}
-
           {maintenance && (
             <div className="maintenance-expand">
               <div className="maint-cost"><span>OS</span><strong>#{maintenance.serviceOrderId || '—'}</strong></div>
@@ -202,7 +167,6 @@ export default function ExpandedRow({ vehicle }: Props) {
           )}
         </section>
       )}
-
       <section className="expanded-section active-services-section">
         <div className="expanded-section-title service-title-line">
           <div>
@@ -214,7 +178,6 @@ export default function ExpandedRow({ vehicle }: Props) {
         {!services.length && (
           <div className="no-active-services">Nenhum serviço ativo para esta placa.</div>
         )}
-
         <div className="active-service-list">
           {services.map(manifest => {
             const id = Number(manifest.id)
@@ -232,7 +195,6 @@ export default function ExpandedRow({ vehicle }: Props) {
               ? String(firstCollection.remetente_fantasia || firstCollection.remetente_nome || '').trim()
               : ''
             const extraCollectionCount = Math.max(0, collectionRows.length - 1)
-
             return (
               <div className={`active-service-card service-${state.toLowerCase()}`} key={String(manifest.id)}>
                 <button className="active-service-summary" onClick={() => toggleManifest(manifest)}>
@@ -242,6 +204,7 @@ export default function ExpandedRow({ vehicle }: Props) {
                   <div className="service-main-info">
                     <strong>{manifest.service || 'Serviço'} · Manifesto #{manifest.numero || manifest.id}</strong>
                     <span>{manifest.motorista || 'Motorista não informado'}</span>
+                    <span>Gerado em: {when((manifest as any).generatedAt || (manifest as any).data)}</span>
                   </div>
                   <div className="service-destination-info">
                     {isCollectionManifest(manifest) ? (
@@ -262,12 +225,10 @@ export default function ExpandedRow({ vehicle }: Props) {
                   </div>
                   <span className="service-expand-icon">{open ? <ChevronUp size={17}/> : <ChevronDown size={17}/>}</span>
                 </button>
-
                 {open && (
                   <div className="service-manifest-detail">
                     {loadingId === id && <div className="expand-loading">Carregando notas e entregas...</div>}
                     {manifestError[id] && <div className="expand-error">{manifestError[id]}</div>}
-
                     {detail && (
                       <>
                         {isCollectionManifest(manifest) && detail.coletas.length > 0 && (
@@ -277,21 +238,17 @@ export default function ExpandedRow({ vehicle }: Props) {
                               <div key={String(coleta.numero ?? index)}>
                                 <span>{String(coleta.remetente_fantasia ?? coleta.remetente_nome ?? `Coleta ${index + 1}`)}</span>
                                 <b>{collectionAddress(coleta)}</b>
-                                <span>{auditDate(coleta, 'COLLECTION')}</span>
                               </div>
                             ))}
                           </div>
                         )}
-
                         <div className="expand-title">
                           <strong>Notas fiscais · Manifesto #{String(detail.manifest.numero ?? manifest.numero ?? '')}</strong>
                           <span>{detail.cache === 'HIT' ? 'cache rápido' : 'consulta atualizada'}</span>
                         </div>
-
                         <div className="nf-table-head">
                           <span>NF</span><span>Pedido</span><span>Volumes</span><span>Peso</span><span>Valor</span>
                         </div>
-
                         {detail.notasFiscais.map((nf, index) => (
                           <div className="nf-table-row" key={String(nf.id ?? index)}>
                             <span><FileText size={14}/> {String(nf.numero_nf ?? '—')}</span>
@@ -301,18 +258,15 @@ export default function ExpandedRow({ vehicle }: Props) {
                             <span>{money(nf.valor)}</span>
                           </div>
                         ))}
-
                         {!detail.notasFiscais.length && (
                           <div className="no-nf">Nenhuma NF vinculada aos fretes deste manifesto.</div>
                         )}
-
                         {!!detail.fretes.length && (
                           <div className="delivery-strip">
                             {detail.fretes.slice(0, 30).map((frete, index) => (
                               <div key={String(frete.id ?? index)}>
                                 <strong>{String(frete.destinatario_fantasia ?? frete.destinatario_nome ?? 'Destino')}</strong>
                                 <span>{freightAddress(frete)}</span>
-                                <span>{auditDate(frete, 'DELIVERY')}</span>
                               </div>
                             ))}
                           </div>

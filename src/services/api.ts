@@ -268,7 +268,6 @@ export async function importFleetMappingExcel(
   ).data
 }
 
-// aliases mantidos para compatibilidade com versões intermediárias
 export const overview = getOverview
 export const manifestDetail = getManifestDetail
 export const fleetGroups = getFleetGroups
