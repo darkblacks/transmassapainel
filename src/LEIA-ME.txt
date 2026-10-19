@@ -1,0 +1,11 @@
+UPDATE V17.32 - Local da coleta nos serviços ativos
+
+Altera somente:
+- src/components/ExpandedRow.tsx
+
+O que muda:
+- Para manifestos de Coleta, o card inferior passa a mostrar "Coleta em: <endereço>".
+- O front usa o endpoint de detalhe do manifesto que já existe; não precisa alterar backend.
+- Se houver mais de uma coleta no mesmo manifesto, mostra o primeiro endereço e informa quantos locais adicionais existem.
+- Ao expandir o manifesto, aparece um bloco "Local(is) da coleta" com todos os remetentes/endereço de coleta.
+- Distribuição/Transferência continuam mostrando o destino como antes.

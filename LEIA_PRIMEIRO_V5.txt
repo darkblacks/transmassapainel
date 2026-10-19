@@ -1,0 +1,8 @@
+Transmassa Filas V5 - Frontend completo
+- Corrige título FILIAL -> FILA nas operações.
+- Botão Importar Excel (primeira aba .xlsx ou .csv com cabeçalhos Motorista/Nome; Cavalo/Carro/Placa; Carreta).
+- Conferência obrigatória de cada nome não exato com sugestões; opção explícita de manter nome informado.
+- Prévia não salva nada. Envio atômico ao novo backend POST /api/driver-queue/drivers/import.
+- Campos inconsistentes, duplicações ou placas inválidas bloqueiam importação.
+- Últimos 3 empenhos e confirmação de empenho mantidos, ocultos na impressão.
+ANTES DE PUBLICAR: backend V5 e migração sql devem estar aplicados e validados.

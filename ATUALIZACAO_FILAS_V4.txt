@@ -1,0 +1,10 @@
+TRANSMASSA - ATUALIZACAO FRONTEND FILAS V4
+Base: ZIP main anexado nesta conversa.
+- Cinco filas com códigos compatíveis com DTO NestJS V3.
+- Menu discreto de ações, exclusão com confirmação.
+- Popup de empenho sempre; justificativa só quando fora do primeiro lugar.
+- Últimos três empenhos da fila atual (data e horário), via /api/driver-queue/history.
+- Impressão A4 sem histórico e sem botões.
+ATENÇÃO: Backend NestJS necessita rotas e registros das cinco filas no PostgreSQL.
+Build não validado neste ambiente: dependências npm ausentes/incompletas.
+No Windows: npm ci && npm run build.
