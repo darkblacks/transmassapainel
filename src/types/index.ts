@@ -352,6 +352,13 @@ export interface EslReportHealth {
 }
 
 export interface EslRecentExecution {
+  stage?: string | null
+  reason?: string | null
+  rejected?: number | null
+  discarded?: number | null
+  generationSeconds?: number | null
+  downloadSeconds?: number | null
+  importSeconds?: number | null
   id?: number | string
   report: string
   status: string

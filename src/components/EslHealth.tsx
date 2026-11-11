@@ -263,34 +263,46 @@ function ReportCard({ report, now }: { report: EslReportHealth; now: number }) {
 }
 
 function RecentExecutionTable({ rows }: { rows: EslRecentExecution[] }) {
-  if (!rows.length) {
-    return <div className="esl-history-empty">O histórico aparecerá quando a API de integração estiver conectada.</div>
-  }
+  const [expanded, setExpanded] = useState<string | null>(null)
+  if (!rows.length) return <div className="esl-history-empty">O histórico aparecerá quando a API de integração estiver conectada.</div>
 
   return (
     <div className="esl-history-table">
       <div className="esl-history-head">
-        <span>Relatório</span>
-        <span>Status</span>
-        <span>Programado</span>
-        <span>Início</span>
-        <span>Fim</span>
-        <span>Duração</span>
-        <span>Linhas</span>
-        <span>Alterações</span>
+        <span>Relatório</span><span>Status</span><span>Programado</span><span>Início</span>
+        <span>Fim</span><span>Duração</span><span>Linhas</span><span>Detalhes</span>
       </div>
-      {rows.map((row, index) => (
-        <div className="esl-history-row" key={`${row.report}-${row.id || index}-${row.finishedAt || row.startedAt || index}`}>
-          <strong>{row.report}</strong>
-          <span className={`status-pill ${String(row.status).toLowerCase()}`}>{row.status}</span>
-          <span>{formatDateTime(row.scheduledAt)}</span>
-          <span>{formatDateTime(row.startedAt)}</span>
-          <span>{formatDateTime(row.finishedAt)}</span>
-          <span>{formatDuration(row.durationSeconds)}</span>
-          <span>{row.rows == null ? '—' : Number(row.rows).toLocaleString('pt-BR')}</span>
-          <span>{row.changes == null ? '—' : Number(row.changes).toLocaleString('pt-BR')}</span>
+      {rows.map((row, index) => {
+        const key = `${row.report}-${row.id || index}-${row.finishedAt || index}`
+        const failed = ['erro', 'error'].includes(String(row.status).toLowerCase())
+        const open = expanded === key
+        return <div className="esl-execution-item" key={key}>
+          <div className="esl-history-row">
+            <strong>{row.report}</strong>
+            <span className={`status-pill ${String(row.status).toLowerCase()}`}>{row.status}</span>
+            <span>{formatDateTime(row.scheduledAt)}</span>
+            <span>{formatDateTime(row.startedAt)}</span>
+            <span>{formatDateTime(row.finishedAt)}</span>
+            <span>{formatDuration(row.durationSeconds)}</span>
+            <span>{row.rows == null ? '—' : Number(row.rows).toLocaleString('pt-BR')}</span>
+            <button type="button" className={`esl-detail-button ${failed ? 'is-error' : ''}`} aria-expanded={open} onClick={() => setExpanded(open ? null : key)}>
+              {open ? 'Ocultar' : failed ? 'Ver erro' : 'Detalhes'}
+            </button>
+          </div>
+          {open && <div className="esl-execution-details">
+            <div className="esl-detail-title"><strong>{failed ? 'Diagnóstico da falha' : 'Detalhes da execução'}</strong><span>Execução #{row.id || '—'}</span></div>
+            <div className="esl-detail-grid">
+              <div><small>Etapa</small><strong>{row.stage || 'Não registrada'}</strong></div>
+              <div><small>Rejeitados</small><strong>{row.rejected ?? '—'}</strong></div>
+              <div><small>Descartados</small><strong>{row.discarded ?? '—'}</strong></div>
+              <div><small>Geração</small><strong>{formatDuration(row.generationSeconds)}</strong></div>
+              <div><small>Download</small><strong>{formatDuration(row.downloadSeconds)}</strong></div>
+              <div><small>Importação</small><strong>{formatDuration(row.importSeconds)}</strong></div>
+            </div>
+            <div className="esl-detail-reason"><small>Motivo registrado</small><p>{row.reason || (failed ? 'A origem não registrou uma mensagem para esta falha.' : 'Nenhuma ocorrência registrada.')}</p></div>
+          </div>}
         </div>
-      ))}
+      })}
     </div>
   )
 }
